@@ -1,161 +1,106 @@
-# NiftyLens — Product Requirements Document (PRD)
+# PRD — NiftyLens
 
-## 1. Overview
-
-**Product Name:** NiftyLens  
-**Tagline:** India’s sharpest stock market dashboard.  
-**Type:** Real-Time Finance Web Application  
-**Stack:** Next.js · TypeScript · Python FastAPI · Supabase · TradingView Lightweight Charts  
-**Target Users:** Indian retail investors, swing traders, F&O traders, portfolio managers  
+## Overview
+NiftyLens is a real-time Indian stock market dashboard for NSE and BSE. It provides live price feeds, technical indicators (RSI, MACD, Bollinger Bands), portfolio tracking, F&O option chain viewer, and price alert triggers for Indian retail investors.
 
 ---
 
-## 2. Problem Statement
-
-Indian retail investors are scattered across Screener.in, Moneycontrol, Zerodha Kite, and NSE India — no single tool combines real-time prices, technical indicators, F&O option chain, portfolio tracking, and smart alerts in one clean interface. NiftyLens is that unified dashboard.
-
----
-
-## 3. Goals & Success Metrics
-
-| Goal | Metric | Target |
-|------|--------|--------|
-| User growth | Registered users | 1,000 in 3 months |
-| Engagement | Daily Active Users | 30% of registered |
-| Revenue | MRR | ₹75,000 in 6 months |
-| Data freshness | Price update latency | < 1 second |
+## Problem Statement
+Indian retail investors (10+ crore active Demat accounts) lack a free, clean, data-rich dashboard. Existing tools (Zerodha Kite, Groww) are brokerage-locked. Independent dashboards are either too basic or too expensive.
 
 ---
 
-## 4. Features
-
-### 4.1 Core (MVP)
-- [ ] Live NSE/BSE price feed (WebSocket)
-- [ ] Candlestick chart (1m, 5m, 15m, 1h, 1D, 1W)
-- [ ] Technical indicators: RSI, MACD, Bollinger Bands, EMA
-- [ ] Stock search and watchlist (save up to 20 stocks free)
-- [ ] Index overview: Nifty 50, Bank Nifty, Sensex, Nifty IT
-- [ ] F&O Option Chain viewer (live CE/PE data)
-- [ ] Price alert: email/Telegram when stock crosses target
-
-### 4.2 Growth (Post-MVP)
-- [ ] Portfolio tracker (P&L, XIRR, sector allocation)
-- [ ] Screener: filter stocks by RSI < 30, MACD crossover, etc.
-- [ ] Sector heatmap (like Finviz for India)
-- [ ] IPO tracker and GMP calendar
-- [ ] AI-powered trade setup detection (breakout, reversal patterns)
-- [ ] Broker integration (Zerodha Kite / Angel One API)
+## Goals
+- Real-time NSE/BSE price feeds with <2s latency
+- Technical indicator overlays on TradingView-style charts
+- F&O option chain with OI, IV, and Greeks
+- Portfolio tracker with P&L, XIRR, and sector allocation
+- Price and indicator-based alert system via email/Telegram
 
 ---
 
-## 5. Architecture
-
-```
-┌────────────────────────────────────────────────────────┐
-│              DATA SOURCES                              │
-│  NSE India API · Upstox API · Angel One SmartAPI        │
-│  Yahoo Finance (yfinance) · NSEPy                       │
-└───────────────────────┬────────────────────────────────┘
-                       │
-           ┌─────────┴─────────┐
-           │                   │
-           ▼                   ▼
-┌───────────────────┐  ┌───────────────────┐
-│  Python FastAPI         │  │  WebSocket Feed         │
-│  Data Pipeline          │  │  (live price stream)    │
-│  — OHLCV aggregation   │  │  — Upstox WS           │
-│  — indicator engine    │  │  — SSE fallback         │
-│  — screener queries    │  └───────────────────┘
-└──────────┬────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│   Supabase                    │
-│   — PostgreSQL (portfolios,   │
-│     watchlists, alerts)       │
-│   — Realtime (alert triggers) │
-│   — Edge Functions (alerts)   │
-└──────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────┐
-│   Next.js 14 Frontend         │
-│   TradingView Lightweight     │
-│   Charts · Tailwind CSS       │
-│   Zustand (watchlist state)   │
-└──────────────────────────────┘
-```
+## Non-Goals
+- No order placement / brokerage integration (v1)
+- No mutual fund tracking (v1)
+- No paid data feed dependency for basic features
 
 ---
 
-## 6. Database Schema
-
-```sql
-users (id uuid PK, email, broker varchar, created_at)
-
-watchlists (
-  id uuid PK,
-  user_id uuid FK,
-  name varchar(100),
-  symbols text[]      -- ["RELIANCE", "TCS", "INFY"]
-)
-
-alerts (
-  id uuid PK,
-  user_id uuid FK,
-  symbol varchar(20),
-  condition varchar(20),   -- above | below | crossover
-  target_price numeric,
-  channel varchar(20),     -- email | telegram
-  triggered_at timestamptz,
-  is_active boolean
-)
-
-portfolios (
-  id uuid PK,
-  user_id uuid FK,
-  symbol varchar(20),
-  quantity integer,
-  avg_buy_price numeric,
-  buy_date date
-)
-```
+## Target Users
+- Indian retail stock investors
+- Options traders (F&O)
+- Personal finance enthusiasts tracking their portfolio
 
 ---
 
-## 7. Tech Stack
-
+## Tech Stack
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 14, TypeScript, Tailwind CSS |
-| Charts | TradingView Lightweight Charts v4 |
-| State | Zustand |
-| Backend | Python FastAPI (data pipeline) |
-| Real-time | Upstox WebSocket API |
-| Indicators | pandas-ta (Python) |
+| Charts | TradingView Lightweight Charts |
+| Data Pipeline | Python FastAPI + NSEPy / Angel One SmartAPI |
+| Backend BFF | Node.js (Next.js API routes) |
 | Database | Supabase PostgreSQL |
-| Alerts | Supabase Edge Functions → Telegram Bot |
-| Deployment | Vercel (frontend) · Render (Python API) |
+| Real-time | Supabase Realtime / WebSocket |
+| Alerts | Supabase Edge Functions → Telegram Bot + Nodemailer |
+| Deployment | Vercel (frontend), Render (Python pipeline) |
 
 ---
 
-## 8. Monetization
+## Database Schema
+```
+watchlists (id, user_id, symbols_array, created_at)
+portfolios (id, user_id, symbol, qty, avg_price, buy_date)
+alerts (id, user_id, symbol, condition, threshold, channel, triggered_at)
+price_cache (symbol, ltp, open, high, low, volume, updated_at)
+```
 
-| Tier | Price | Features |
+---
+
+## Core Features
+
+### v1.0 (MVP)
+- [ ] Live price table for NSE top 200 stocks
+- [ ] Candlestick chart with RSI and MACD overlays
+- [ ] Watchlist management (add/remove symbols)
+- [ ] Portfolio entry (manual) with P&L calculation
+- [ ] Price alert creation (above/below threshold)
+
+### v1.1
+- [ ] F&O option chain viewer (weekly + monthly expiry)
+- [ ] Sector heatmap
+- [ ] Telegram alert delivery
+- [ ] XIRR and CAGR portfolio analytics
+
+### v2.0
+- [ ] Zerodha Kite API integration (read-only portfolio sync)
+- [ ] Stock screener with custom filters
+- [ ] Backtesting integration with BacktestIQ
+
+---
+
+## Business Model
+| Plan | Price | Features |
 |------|-------|----------|
-| Free | ₹0 | 1 watchlist (20 stocks), basic charts, 3 alerts |
-| Pro | ₹299/mo | Unlimited watchlists, F&O chain, 50 alerts, portfolio tracker |
-| Trader | ₹799/mo | AI screener, broker integration, export, priority support |
+| Free | ₹0 | Watchlist, basic charts, 3 alerts |
+| Pro | ₹299/mo | Unlimited alerts, F&O chain, portfolio analytics |
+| Pro Annual | ₹2,499/yr | 30% discount vs monthly |
+
+**Market size:** 10+ crore Demat accounts in India, growing 30% YoY.
 
 ---
 
-## 9. Milestones
+## Success Metrics
+- 1,000 signups in first month (organic, dev Twitter/X)
+- 8% free → Pro conversion
+- < 2s data refresh latency
+- Telegram alert delivery < 5s from trigger
 
-| Week | Deliverable |
-|------|-------------|
-| 1–2 | Live price feed + candlestick chart |
-| 3–4 | Technical indicators (RSI, MACD, BB) |
-| 5–6 | Watchlist + Supabase auth |
-| 7–8 | F&O Option Chain viewer |
-| 9–10 | Alert engine (Telegram + email) |
-| 11–12 | Portfolio tracker + screener |
+---
+
+## Risks
+| Risk | Mitigation |
+|------|------------|
+| NSE data rate limits | Cache aggressively, use multiple free API sources |
+| SEBI compliance for financial data | Prominent disclaimer: not investment advice |
+| Python pipeline cold starts on Render free | Keep-alive ping every 14 min |
