@@ -1,0 +1,10 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@niftylens-supabase-url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@niftylens-supabase-anon-key",
+    "NEXT_PUBLIC_PIPELINE_URL": "@niftylens-pipeline-url"
+  }
+}

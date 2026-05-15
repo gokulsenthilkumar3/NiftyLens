@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: niftylens-pipeline
+    env: python
+    buildCommand: pip install -r pipeline/requirements.txt
+    startCommand: uvicorn pipeline.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+    # Keep-alive: add a cron/uptime monitor to ping /health every 14min
