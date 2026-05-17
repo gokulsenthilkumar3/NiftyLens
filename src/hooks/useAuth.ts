@@ -1,43 +1,44 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Session, User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import {
+  User,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendPasswordResetEmail,
+} from 'firebase/auth'
+import { auth } from '@/lib/firebase'
 
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser)
       setLoading(false)
     })
-
-    // Listen for auth state changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
+    return () => unsubscribe()
   }, [])
 
-  const signInWithGoogle = () =>
-    supabase.auth.signInWithOAuth({ provider: 'google' })
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider()
+    return signInWithPopup(auth, provider)
+  }
 
   const signInWithEmail = (email: string, password: string) =>
-    supabase.auth.signInWithPassword({ email, password })
+    signInWithEmailAndPassword(auth, email, password)
 
   const signUpWithEmail = (email: string, password: string) =>
-    supabase.auth.signUp({ email, password })
+    createUserWithEmailAndPassword(auth, email, password)
 
-  const signOut = () => supabase.auth.signOut()
+  const resetPassword = (email: string) =>
+    sendPasswordResetEmail(auth, email)
 
-  return { session, user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, signOut }
+  const signOut = () => firebaseSignOut(auth)
+
+  return { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, signOut }
 }
